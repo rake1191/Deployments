@@ -1,0 +1,146 @@
+Create the Image
+
+    In your terminal window, update the EC2 instance.
+
+    sudo yum update -y
+
+    Enter your password at the prompt.
+    Install Docker.
+
+    sudo yum install -y docker
+
+    Start Docker.
+
+    sudo service docker start
+
+    Modify the users and groups on the EC2 instance.
+
+    sudo usermod -a -G docker $USER
+
+    Verify that the previous command was successfully applied.
+
+    docker info
+
+        Note: If this command fails, log out of the instance and then log back in.
+
+    Download the Flask application from GitHub.
+
+    git clone https://github.com/<repo>/flask-app.git
+
+    List the contents of the current directory to view the application.
+
+    ls
+
+    Change to the application directory.
+
+    cd cda-2018-flask-app
+
+    List the contents of the application directory.
+
+    ls
+
+    Check out the ecs-master branch.
+
+    git checkout ecs-master
+
+    List the available images.
+
+    docker image ls
+
+    Create a new image.
+
+    docker build -t cda-flask-app .
+
+    List the contents of the Dockerfile.
+
+    cat Dockerfile
+
+    Verify that the image was successfully built.
+
+    docker image ls
+
+    List the contents of the app.py file.
+
+    cat app.py
+
+    Try connecting to the application.
+
+    curl localhost
+
+    This command will fail because we need to reference the localhost of our EC2 instance.
+
+    Run the following command to run the image on our EC2 instance:
+
+    docker run -p 80:80 cda-flask-app
+
+    Open a new terminal window, and log in to the EC2 instance.
+
+    ssh <user_name>@<PUBLIC_IP>;
+
+    Enter your password at the prompt.
+    Run curl on the localhost.
+
+    curl localhost
+
+    Once you've finished testing our configuration, close your second terminal window.
+    In your original terminal window, press Ctrl+C to cancel the previous command.
+
+Push the Image to Amazon ECR
+
+    Create a new repository.
+
+    aws ecr create-repository --repository-name cda-penguin-app
+
+    Copy the value forrepositoryUri from the output, and save it somewhere convenient — we'll need it later.
+    Log in to the ECR repository.
+
+    aws ecr get-login --region us-east-1 --no-include-email
+
+    Copy the output of this command, then paste it into the command line and run it.
+    List the currently available images.
+
+    docker image ls
+
+    Associate the cda-flask-app image with the repository URI we copied earlier.
+
+    docker tag cda-flask-app:latest <REPOSITORY_URI>;
+
+    Push the image to Amazon ECR (Using the URI from the previous section).
+
+    docker push <REPOSITORY_URI>;
+
+    Switch to your AWS Management Console window, and navigate to the Elastic Container Service.
+    Click Repositories in the left sidebar.
+    The cda-penguin-app repository should appear in the list.
+    Close your terminal window.
+
+Deploy the Containerized Application to ECS
+
+    On the Amazon Elastic Container Service (ECS) service page, click *Get Started
+    Click on Repositories, then click Clusters in the in the left sidebar, then choose Get Started.
+    Under the Container definition header, in custom, click Configure in the custom box.
+    In the Edit container menu, enter the following settings:
+        Container name: penguin-container
+        Image: [use the URI of your cda-penguin-app repository]
+        Memory Limits (MiB): Hard limit | 128
+        Port mappings: 80
+    Click Update.
+    Under the Task definition header, click Edit, and enter the following settings:
+        Task definition name: penguin-task-definition
+        Task execution role: ecsTaskExecutionRole
+
+            Note: Be sure to click into the Task execution role dropdown and select the ecsTaskExecutionRole option, even if it already appears by default. Otherwise, you may get an error.
+
+    Click Save.
+    Click Next.
+    Under the Define your service header, leave the default None option selected for Load balancer type.
+    Click Next.
+    Under the Configure your cluster header, type "penguin-default-cluster" for the Cluster name.
+    Click Next.
+    Click Create.
+    When your resources are finished creating, click View service.
+    Click the Tasks tab at the bottom of the page.
+    Click the task name link to open it.
+    When the status of the container is RUNNING, open the ENI Id link under the Network header in a new browser tab.
+    Copy the IPv4 Public IP address for the application, and paste it in a new browser tab.
+    We should see our website.
