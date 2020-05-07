@@ -1,0 +1,70 @@
+#GET
+
+import json
+import boto3
+import io
+import csv
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('FETEAM')
+    
+def lambda_handler(event, context):
+    response = table.scan()
+    items = response['Items']
+    while 'LastEvaluatedKey' in response:
+        print(response['LastEvaluatedKey'])
+        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+        items.extend(response['Items'])
+    
+    output = io.StringIO()
+    csvdata = items
+    for i in csvdata:
+	    i.pop('id')
+    writer = csv.DictWriter(output, fieldnames=["CaseID", "USERID", "comm","SnapShotDate"], delimiter=",", quoting=csv.QUOTE_MINIMAL)
+    writer.writeheader()
+    writer.writerows(csvdata)
+    
+    convertedtocsv = output.getvalue()
+    
+    responseObject = {}
+    responseObject['statusCode'] = 200
+    responseObject['headers'] = {}
+    responseObject['headers']['Content-Type'] = 'text/csv'
+    responseObject['headers']['Content-Disposition'] = 'attachment; filename=export.csv'
+    responseObject['body'] = convertedtocsv
+    return responseObject
+
+
+#PUT
+import json
+import boto3
+
+from datetime import datetime, timedelta
+from uuid import uuid4
+
+eventid = datetime.now().strftime('%Y%m-%d%H-%M%S-') + str(uuid4())
+timesnip = (datetime.utcnow() + timedelta(minutes=330)).strftime("%Y-%m-%d")
+print('eventid is - '+str(eventid))
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('FETEAM')
+
+def lambda_handler(event, context):
+    transactionId = event['queryStringParameters']['CASE_ID']
+    transactionType = event['queryStringParameters']['USERID']
+    transactionAmount = event['queryStringParameters']['comm']
+    
+    print('transactionId=' + transactionId + 'transactionType=' + transactionType + 'transactionAmount=' + transactionAmount)
+    response = table.put_item(Item={
+    	'id':eventid,
+    	'CaseID':transactionId,
+    	'USERID':transactionType,
+    	'comm': transactionAmount,
+        'SnapShotDate':timesnip
+    }
+    	)
+    
+    return{
+        'statusCode': 200,
+        'body': json.dumps({'message':'Success'})
+    }
